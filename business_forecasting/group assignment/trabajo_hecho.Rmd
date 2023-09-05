@@ -1,0 +1,463 @@
+---
+title: "trabajo_hecho"
+author: "RialPepe"
+date: "2022-10-18"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+library(GGally)
+library(corrplot)
+library(ggplot2)
+Attrition <-read.csv("C:/Users/pepec/Desktop/estudios/master/semester_1/business_forecasting/group assignment/attrition.csv")
+library(ggplot2)
+library(car)
+attrn<-(Attrition)
+```
+
+
+## I. Data Pre-processing
+
+1. Looking through the Data
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+dim(attrn)
+names(attrn)
+summary(attrn)
+```
+
+
+Result- Over 18, EmployeeCount, EmployeeNumber & Standard working hours have same values for all employees. Summary result of rest of the data seems okay with no major discrepancies. 
+(We have 'Att' coloum which was introduced in the data file before uploading on R to give binary values to Attrition:  0 as 'No attrition' and 1 as 'yes attrition')
+
+
+
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+data<- subset(attrn, select=-c(EmployeeCount,EmployeeNumber,Over18,StandardHours))
+dim(data)
+names(data)
+```
+
+
+
+Result- We have dropped four column- attrition (repeated coloum as we have new coloum Att),Over 18, EmployeeCount, EmployeeNumber & Standard working hours. The dataset now has 1470 rows and 32 variables and has been renamed to 'data'.
+
+
+ 2. Looking for Missing values
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+is.na(data)
+```
+
+
+Result- There are No missing values in the dataset.
+
+
+
+
+3. Structure of the Data to identify Integers and categorical values 
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+str(data)
+head(data)
+```
+
+Result- No interger/float type values, 
+Categorical values which needs to be changed to factors- BusinessTravel", "Department", "DistanceFromHome",
+               "Education", "EducationField", "EnvironmentSatisfaction", "Gender",
+               "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus",
+               "OverTime", "PerformanceRating", "RelationshipSatisfaction", "StockOptionLevel", "WorkLifeBalance"
+               
+               
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+factors <- c("BusinessTravel", "Department", "DistanceFromHome",'RelationshipSatisfaction',
+               "Education", "EducationField", "EnvironmentSatisfaction", "Gender",
+               "JobInvolvement", "JobLevel", "JobRole", "JobSatisfaction", "MaritalStatus",
+               "OverTime", "PerformanceRating", "StockOptionLevel", "WorkLifeBalance")
+data[factors] = lapply(data[factors], factor)
+```
+
+
+Result- All the categorical values changed to factors and the final dataset is ready for next step.
+
+
+
+
+## II. Exploratory Data Analysis
+
+1. Checking for distribution of data
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+ggplot(data=data, aes(Attrition,fill = Attrition))+geom_histogram(stat="count")+labs(title="Employee Attrition (Count)", x="Employee Attrition",y="count")
+```
+
+
+
+Result- The data sample is imbalanced as most of the instances in the dataset belong to category 0 (No Attrition). We will keep this in mind while distributing our data in 'test' and 'train' samples
+
+
+
+
+2. Box plots to check data distribution and outliers on numerical variables
+
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+p1<-ggplot(data, aes(x=Age)) + geom_boxplot(fill='yellow',color='black', outlier.color='red', notch = TRUE) + labs(title = "Age")
+p2<-ggplot(data, aes(x=MonthlyIncome)) + geom_boxplot(fill='yellow',color='black', outlier.color='red', notch = TRUE) + labs(title = "MonthlyIncome")
+p3<-ggplot(data, aes(x=NumCompaniesWorked)) + geom_boxplot(fill='yellow',color='black', outlier.color='red', notch = TRUE) + labs(title = "NumCompaniesWorked")
+p4<-ggplot(data, aes(x=PercentSalaryHike)) + geom_boxplot(fill='yellow',color='black', outlier.color='red', notch = TRUE) + labs(title = "PercentSalaryHike")
+p5<-ggplot(data, aes(x=TotalWorkingYears)) + geom_boxplot(fill='yellow',color='black', outlier.color='red', notch = TRUE) + labs(title = "TotalWorkingYears")
+p6<-ggplot(data, aes(x=YearsAtCompany)) + geom_boxplot(fill='yellow',color='black', outlier.color='red', notch = TRUE) + labs(title = "YearsAtCompany")
+library(gridExtra)
+grid.arrange(p1, p2, p3,p4,p5,p6, ncol=3)
+```
+
+
+Result-  Slight skewness and some outliers are detected, we will explore it further via cook distance with our first model.
+
+
+
+3. Correlation between numerical variables
+
+first grouping the numerical variables
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+num_cols <- unlist(lapply(data, is.numeric))         
+num_cols
+sub<-subset(data, select=c(Attrition, Age,DailyRate,
+   MonthlyIncome,NumCompaniesWorked,PercentSalaryHike,TotalWorkingYears,
+    YearsAtCompany, YearsInCurrentRole, YearsSinceLastPromotion,
+    YearsWithCurrManager))
+str(sub)
+```
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+# Convert 'Attrition' factor to 0 and 1
+data$Attrition <- ifelse(data$Attrition == "No", 0, 1)
+
+# Select numerical variables for correlation calculation
+num_cols <- unlist(lapply(data, is.numeric))
+num_data <- data[, num_cols]
+
+# Calculate correlation matrix
+M <- cor(num_data)
+
+# Plot the correlation matrix
+library(corrplot)
+corrplot(M, method = "ellipse")
+```
+
+
+Scatterplot matrix
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+ggpairs(sub, cardinality_threshold = 35)
+```
+
+
+Result- High correlations were found for some variables like:
+
+YearsAtCompany~YearsWithCurrManager         0.769
+YearsAtCompany~YearsSinceLastPromotion         0.618
+YearsAtCompany~YeasinCurrentRole
+ 0.759
+YearsinCurrentRole~YearsWithCurrManager         0.714
+
+
+
+4. Checking relationship between attrition and categorical values via histograms
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+Att1 <- as.factor(data$Attrition)
+plot2 <-ggplot(data,aes(x = BusinessTravel,fill = Att1)) +geom_bar(position = "fill")
+plot2 = plot2 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot2
+plot3 <-ggplot(data,aes(x = Department,fill = Att1)) +geom_bar(position = "fill")
+plot3 = plot3 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot3
+plot4 <-ggplot(data,aes(x = Education,fill = Att1)) +geom_bar(position = "fill");plot4
+plot5 <-ggplot(data,aes(x = EducationField,fill = Att1)) +geom_bar(position = "fill")
+plot5 = plot5 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot5
+plot6 <-ggplot(data,aes(x = EnvironmentSatisfaction,fill = Att1)) +geom_bar(position = "fill");plot6
+plot7 <-ggplot(data,aes(x = Gender,fill = Att1)) +geom_bar(position = "fill")
+plot7 = plot7 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot7
+plot8 <-ggplot(data,aes(x = JobInvolvement,fill = Att1),) +geom_bar(position = "fill");plot8
+plot9 <-ggplot(data,aes(x = JobLevel,fill = Att1)) +geom_bar(position = "fill");plot9
+plot10 <-ggplot(data,aes(x = JobRole,fill = Att1)) +geom_bar(position = "fill")
+plot10 = plot10 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+plot10 = plot10 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot10
+plot11 <-ggplot(data,aes(x = JobSatisfaction,fill = Att1)) +geom_bar(position = "fill");plot11
+plot12 <-ggplot(data,aes(x = MaritalStatus,fill = Att1)) +geom_bar(position = "fill")
+plot12 = plot12 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot12
+plot13 <-ggplot(data,aes(x = OverTime,fill = Att1)) +geom_bar(position = "fill")
+plot13 = plot13 + theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5));plot13
+plot14 <-ggplot(data,aes(x = PerformanceRating,fill = Att1)) +geom_bar(position = "fill");plot14
+plot15 <-ggplot(data,aes(x = StockOptionLevel,fill = Att1)) +geom_bar(position = "fill");plot15
+plot16 <-ggplot(data,aes(x = WorkLifeBalance,fill = Att1)) +geom_bar(position = "fill");plot16
+```
+
+Result- In these plots, we can see certain variables which are likely to contribute more to potential models. 
+For eg- more frequent travel and lower levels of environment satisfaction are correlated with greater attrition, more job involvement has lower attrition, greater attrition for married people than divorced people. We had expected to see more attrition among singles, which is also clear from this plot. Overtime is also correlated with a higher attrition level.
+
+
+
+
+
+ 4. Checking for Normality of the numerical values to ensure there is no skewness in the distribution of the variables can which can effect our analysis
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+par(mfrow=c(3,2))
+#qqnorm()
+qqnorm(data$Age, main = "Age")
+qqnorm(data$MonthlyIncome, main = "Monthly Income"); qqline(data$MonthlyIncome)
+qqnorm(data$NumCompaniesWorked, main = "Num of companies worked at"); qqline(data$NumCompaniesWorked)
+qqnorm(data$PercentSalaryHike, main = "Per Salary hike"); qqline(data$PercentSalaryHike)
+qqnorm(data$TotalWorkingYears, main = "Total working years"); qqline(data$TotalWorkingYears)
+qqnorm(data$YearsAtCompany, main = "Years at company"); qqline(data$YearsAtCompany)
+```
+
+
+Result- Most of the data attributes seem almost normal. There is slight  variations, but nothing major that we should be concerned about
+
+
+
+## III. Model building using logistics regression 
+
+
+1. Splitting the data into test and train (taking into consideration the unbalanced data)
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+set.seed(123)
+smp_size <- floor(0.75 * nrow(data))
+train_size <- sample(seq_len(nrow(data)), size = smp_size)
+train <- data[train_size, ]
+test <- data[-train_size, ]
+```
+
+
+Result- the sample is distributed into train and test data with 75% as train and 25% as test
+
+
+
+2. Full model with all variables
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+g1<-glm (Attrition ~ ., data=train, family = 'binomial')
+summary(g1)
+```
+
+
+Result- First model with all variables, AIC- 749.37
+
+
+3. Checking for outliers and leverage points in the data for remediation before we start the model selection process
+
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+influencePlot(g1)
+```
+
+
+
+
+Result- No high cook’s d values in the table, therefore no further remediation steps needed
+
+
+
+
+
+
+## IV.Model selection
+
+
+1. Step model of g1
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+g1.step<- step(g1)
+#summary(g1.step)$coefficients
+```
+
+
+Result- reduction in variables from 30 to 22, significant AIC reduction
+
+
+
+2. Interaction model- Looking at corr matrix, we observe there are some high ccorrelations between YearsAtCompany + YearsInCurrentRole + YearsSinceLastPromotion + YearsWithCurrManager, therefore we fit an interaction model here
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+g1.step.inter<- glm(Attrition~(Age + BusinessTravel + DailyRate + Department + EducationField + 
+    EnvironmentSatisfaction + Gender + JobInvolvement + JobLevel + 
+    JobRole + JobSatisfaction + MonthlyIncome + NumCompaniesWorked + 
+    OverTime + RelationshipSatisfaction + StockOptionLevel + 
+    TrainingTimesLastYear + WorkLifeBalance) * (YearsAtCompany + 
+    YearsInCurrentRole + YearsSinceLastPromotion + YearsWithCurrManager),data=train)
+summary(g1.step.inter)
+```
+
+
+
+Result- Significant reduction in AIC value
+
+
+3. we run the step function on the above model
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+g1.step.inter.step<- step(g1.step.inter)
+summary(g1.step.inter.step)
+```
+
+
+Result- Further reduction in the AIC value
+
+
+
+4. Anova test on g1.step and g1.step.inter.step model to select which model performs better
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+anova(g1.step, g1.step.inter.step, test = 'Chisq')
+```
+
+
+
+Result- Since p- value is small so we reject null hypothesis and consider g1.step.inter.step to be a better fit. All variables are important in the model either independently or in interaction terms
+
+
+
+
+
+## V. Further remediation and refining the model
+
+
+1. Collinearity check using  'vif' on the best fit model we have till now- g1.step.inter.step
+
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+library(DAAG)
+vif(g1.step.inter.step)
+```
+
+
+
+Result- we see 'YearsAtCompany' variable has highest VIF value. Therefore fitting a model without YearsAtCompany
+
+
+
+2. Fitting model g2 without 'YearsAtCompany' and running step function
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+g2<-glm(Attrition ~ (Age + BusinessTravel + DailyRate + Department + EducationField + 
+    EnvironmentSatisfaction + Gender + JobInvolvement + JobLevel + 
+    JobRole + JobSatisfaction + MonthlyIncome + NumCompaniesWorked + 
+    OverTime + RelationshipSatisfaction + StockOptionLevel + 
+    TrainingTimesLastYear + WorkLifeBalance) * (YearsInCurrentRole + YearsSinceLastPromotion + YearsWithCurrManager), data=train)
+summary(g2)
+g2.step <- step(g2)
+```
+
+
+
+
+3. Compare g2.step with g1.step.inter.step model
+
+
+
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+anova(g2.step,g1.step.inter.step, test='Chisq')
+```
+
+
+
+
+
+
+Result- Since p-value is small , therefore we reject null hypothesis and accept that g1.step.inter.step is a better fit model
+
+
+
+
+
+4. Looking at the individual confidential interval of the coefficients with Bonferroni confidence interval for all variables of g1.step.inter.step model 
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+m <- 22
+level.fam <- .95
+alpha <- (1-level.fam)
+level.ind <- 1-alpha/(2*m)
+confint(g1.step.inter.step, level=level.ind)
+```
+
+
+
+Result- Checking all the non-interaction terms , we find Age+ BusinessTravel+ EducationField+ EnvironmentSatisfaction+ JobInvolvement+ JobSatisfaction+ OverTime+ StockOptionLevel+ YearsSinceLastPromotion does not contain zero. 
+
+
+
+5. Fitting the model with variables that do not contain zero in their confidence interval and running step function
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+g3<- glm(Attrition ~ Age+ BusinessTravel+ EducationField+ EnvironmentSatisfaction+ JobInvolvement+ JobSatisfaction+ OverTime+ StockOptionLevel+ YearsSinceLastPromotion, data= train)
+g3.step<- step(g3)
+#summary(g3.step)
+```
+
+
+
+
+## VI Cross validation on train data 
+
+1. We perform k-fold Cross Validation of following models- g1.step ,g1.step.inter.step , g2.step ,g3.step
+
+
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+library(boot)
+set.seed (123)
+g1.step.err=cv.glm(train,g1.step,K=5)$delta 
+g1.step.inter.step.err=cv.glm(train,g1.step.inter.step,K=10)$delta 
+g2.step.err=cv.glm(train,g2.step,K=10)$delta 
+g3.step.err=cv.glm(train,g3.step,K=10)$delta 
+R<- rbind(g1.step.err,g1.step.inter.step.err,g2.step.err,g3.step.err)
+colnames(R)<-c('Error', '    with Bias correction')
+R
+```
+
+
+
+Result- 1st value for each model is raw cross-validation estimate of prediction error and second value is bias corrected estimate of prediction error.
+We see all the models errors rates are very close. However we select g1.step.inter.step as the best fiiting model as it has the lowest error %
+
+
+
+
+## VII. Confusion Matrix and model accuracy on test data
+
+Using test data, we predict the results via confusion matrix
+
+```{r, echo = FALSE, results = 'hide', message = FALSE, warning = FALSE}
+dim(test)
+G.prob<-predict(g1.step.inter.step, test,type='response')
+G.pred=rep('0', 368)
+G.pred[G.prob>0.5]='1'
+table(G.pred, test$Att)
+```
+
+
+Result- We get 67.7% accuracy in predicting attrition (21 attrition values were correctly predicted out of total 31 values). We see an overall accuracy of   of 86.1 %
